@@ -26,16 +26,18 @@ func (s *SQLMapper) SqlDbConn() *sql.DB {
 	return s.sqlConn
 }
 
-// Uses SQL to retrieve all points within the radius (in meters)
+// Uses SQL to retrieve all points within the radius (in km)
 // passed in from the origin point passed in.
 // Original implemenation from : http://www.movable-type.co.uk/scripts/latlong-db.html
 // Returns a pointer to a sql.Rows as a result, or an error if one occurs during the query.
-func (s *SQLMapper) PointsWithinRadius(p *Point, radius float64) (*sql.Rows, error) {
+func (s *SQLMapper) PointsWithinRadius(p *Point, radius float64, limit int, offset int) (*sql.Rows, error) {
 	select_str := fmt.Sprintf("SELECT * FROM %v a", s.conf.table)
-	lat1 := fmt.Sprintf("sin(radians(%f)) * sin(radians(a.lat))", p.lat)
-	lng1 := fmt.Sprintf("cos(radians(%f)) * cos(radians(a.lat)) * cos(radians(a.lng) - radians(%f))", p.lat, p.lng)
+	lat1 := fmt.Sprintf("sin(radians(%f)) * sin(radians(a.%v))", p.lat, s.conf.latCol)
+	lng1 := fmt.Sprintf("cos(radians(%f)) * cos(radians(a.%v)) * cos(radians(a.%v) - radians(%f))",
+		p.lat, s.conf.latCol, s.conf.lngCol, p.lng)
+
 	where_str := fmt.Sprintf("WHERE acos(%s + %s) * %f <= %f", lat1, lng1, float64(EARTH_RADIUS), radius)
-	query := fmt.Sprintf("%s %s", select_str, where_str)
+	query := fmt.Sprintf("%s %s limit %v offset %v", select_str, where_str, limit, offset)
 
 	res, err := s.sqlConn.Query(query)
 	if err != nil {
